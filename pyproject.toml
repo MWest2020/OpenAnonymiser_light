@@ -30,6 +30,23 @@ gpu = [
 nl-core-news-lg = { url = "https://github.com/explosion/spacy-models/releases/download/nl_core_news_lg-3.8.0/nl_core_news_lg-3.8.0-py3-none-any.whl"}
 presidio-evaluator = { git = "https://github.com/microsoft/presidio-research.git" }
 
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+# Ship `src` itself as the top-level package (flat layout): all runtime code
+# imports absolutely as `src.api.*`, so the wheel must install that exact
+# package path. Minimal fix — no import rewrites, easy to sync with upstream.
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+
+# plugins*.yaml are read at runtime by src/api/utils/plugin_loader.py
+# (default: src/api/plugins.yaml; CPU flavor: plugins.classic.yaml via
+# the PLUGINS_CONFIG env var) — they must ship in the wheel.
+[tool.setuptools.package-data]
+"src.api" = ["*.yaml"]
+
 [tool.ruff]
 line-length = 88
 target-version="py312"
