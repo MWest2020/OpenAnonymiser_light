@@ -1,0 +1,14 @@
+# Trivy ignore — scoped, gemotiveerde uitzonderingen. GEEN gate-verzwakking:
+# alle andere HIGH/CRITICAL blijven de build blokkeren. Dit zijn twee build-tool-
+# metadata-CVE's die als transitief base-image-artefact (python:3.12-*bookworm)
+# overblijven en NIET op het runtime-pad van de service liggen. Alle OS-CVE's en
+# alle overige Python-wheel-CVE's (transformers-RCE, starlette, cryptography,
+# urllib3, python-multipart) zijn wél echt gepatcht.
+
+# wheel: Privilege Escalation / Arbitrary Code Execution bij het BOUWEN van een
+# wheel. De draaiende FastAPI/presidio/GLiNER-service roept 'wheel' nooit aan.
+CVE-2026-24049
+
+# jaraco.context: Path traversal via malicious tarball — een setuptools-helper,
+# niet geïmporteerd op het runtime-pad van de service.
+CVE-2026-23949

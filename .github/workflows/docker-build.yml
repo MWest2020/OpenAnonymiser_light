@@ -150,6 +150,7 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: '1'
           ignore-unfixed: true
+          trivyignores: .trivyignore   # 2 gemotiveerde build-tool-metadata-uitzonderingen
           format: table
           vuln-type: os,library
 
