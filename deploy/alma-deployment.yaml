@@ -1,0 +1,104 @@
+# OpenAnonymiser (GLiNER-only) — alma (productie) K8s-deploy.
+#
+# alma = productie; deze apply doet Mark (of met expliciete go). De image is
+# portable/public op GHCR (`ghcr.io/mwest2020/openanonymiser-light:latest`,
+# model gebakken → geen runtime-download). Geen GPU op alma bekend → CPU,
+# werkt maar traag; verhoog resources/replicas naar alma's capaciteit.
+#
+# Wordsworth (op alma) bereikt deze service in-cluster via
+#   http://openanonymiser.openanonymiser.svc.cluster.local:8080
+# (zet WORDSWORTH_OPENANONYMISER_URL daarop). Voor extern gebruik: de Ingress
+# onderaan aanzetten + host/ingressClass/TLS invullen voor alma.
+#
+#   kubectl apply -f deploy/alma-deployment.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openanonymiser
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openanonymiser
+  namespace: openanonymiser
+  labels: { app: openanonymiser }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: openanonymiser }
+  template:
+    metadata:
+      labels: { app: openanonymiser }
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: api
+          image: ghcr.io/mwest2020/openanonymiser-light:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: UVICORN_SERVER_MODE
+              value: production
+            - name: DEFAULT_SPACY_MODEL
+              value: nl_core_news_lg
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          resources:
+            # torch + spaCy-lg + GLiNER-model ≈ 3-4 GiB resident.
+            requests: { cpu: "500m", memory: "2Gi" }
+            limits:   { cpu: "2000m", memory: "6Gi" }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+          startupProbe:            # model laadt ~1-3 min → geef 'm tijd
+            httpGet: { path: /api/v1/health, port: 8080 }
+            periodSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            httpGet: { path: /api/v1/health, port: 8080 }
+            periodSeconds: 15
+          livenessProbe:
+            httpGet: { path: /api/v1/health, port: 8080 }
+            periodSeconds: 30
+            failureThreshold: 4
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openanonymiser
+  namespace: openanonymiser
+spec:
+  selector: { app: openanonymiser }
+  ports:
+    - { port: 8080, targetPort: 8080 }
+  type: ClusterIP
+# --- Optioneel: externe toegang op alma (vul host/ingressClass/TLS in) ---
+# ---
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: openanonymiser
+#   namespace: openanonymiser
+#   annotations: {}                      # cert-manager/issuer indien gebruikt
+# spec:
+#   ingressClassName: <alma-ingressclass>
+#   tls:
+#     - hosts: [ <anonymiser.alma-domein> ]
+#       secretName: openanonymiser-tls
+#   rules:
+#     - host: <anonymiser.alma-domein>
+#       http:
+#         paths:
+#           - path: /
+#             pathType: Prefix
+#             backend:
+#               service: { name: openanonymiser, port: { number: 8080 } }
