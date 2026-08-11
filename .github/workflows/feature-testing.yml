@@ -27,10 +27,8 @@ jobs:
           version: "latest"
 
       - name: Install dependencies
-        # --extra gpu is nodig zolang de default plugins.yaml GLiNER op
-        # enabled heeft staan (legacy dev-state). Zodra de default config
-        # naar plugins.classic.yaml shift kan dit weer naar --all-groups.
-        run: uv sync --all-groups --extra gpu
+        # GLiNER-only: gliner (+torch) staat in de base-deps, geen gpu-extra meer.
+        run: uv sync --all-groups
 
       - name: Start API for testing
         run: |
