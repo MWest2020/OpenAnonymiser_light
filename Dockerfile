@@ -57,6 +57,17 @@ RUN apt-get update \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
 
+# De app draait uit /app/.venv; de globale build-tools (pip/setuptools/wheel,
+# incl. de door setuptools gevendorde jaraco.*) zijn runtime-overbodig en dragen
+# alleen Trivy-METADATA-CVE's. Strippen = hardening, geen functieverlies.
+RUN rm -rf /usr/local/lib/python3.12/site-packages/pip* \
+           /usr/local/lib/python3.12/site-packages/setuptools* \
+           /usr/local/lib/python3.12/site-packages/pkg_resources \
+           /usr/local/lib/python3.12/site-packages/_distutils_hack \
+           /usr/local/lib/python3.12/site-packages/wheel* \
+           /usr/local/lib/python3.12/site-packages/jaraco* \
+           /usr/local/bin/pip* 2>/dev/null || true
+
 RUN groupadd -g 1000 presidio && useradd --no-log-init -u 1000 -g presidio -m presidio
 
 WORKDIR /app
