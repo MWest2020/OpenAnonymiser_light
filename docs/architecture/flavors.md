@@ -1,3 +1,5 @@
+> **SUPERSEDED (2026-08-11):** OpenAnonymiser is nu GLiNER-only — geen classic/gpu/contextual-flavors meer. Zie de gliner-only change / README. Dit document beschrijft de oude 3-flavor-opzet (historisch).
+
 # OpenAnonymiser — Flavors (architectuur & stavaza)
 
 > **Status:** concept (skeleton v0.2) — wordt iteratief ingevuld.

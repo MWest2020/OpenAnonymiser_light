@@ -16,15 +16,12 @@ dependencies = [
     "presidio-anonymizer>=2.2.358",
     "nl_core_news_lg",
     "python-dotenv>=1.2.2",
-]
-
-[project.optional-dependencies]
-# gpu flavor: voegt GLiNER toe (trekt torch + CUDA-libs ~5 GB mee).
-# Lokaal gebruik:  uv sync --extra gpu
-# Classic image bouwt zonder deze extra → image ~1 GB i.p.v. 6 GB.
-gpu = [
+    # GLiNER-only (besluit Mark 2026-08-11): het detectie-pad is GLiNER, dus
+    # gliner (+ torch) is nu een base-dependency i.p.v. een optionele gpu-extra.
     "gliner>=0.1.13",
 ]
+
+# (GLiNER-only: geen optionele flavor-extra's meer — gliner staat in de base.)
 
 [tool.uv.sources]
 nl-core-news-lg = { url = "https://github.com/explosion/spacy-models/releases/download/nl_core_news_lg-3.8.0/nl_core_news_lg-3.8.0-py3-none-any.whl"}
@@ -41,9 +38,8 @@ build-backend = "setuptools.build_meta"
 where = ["."]
 include = ["src*"]
 
-# plugins*.yaml are read at runtime by src/api/utils/plugin_loader.py
-# (default: src/api/plugins.yaml; CPU flavor: plugins.classic.yaml via
-# the PLUGINS_CONFIG env var) — they must ship in the wheel.
+# plugins.yaml is read at runtime by src/api/utils/plugin_loader.py
+# (GLiNER-only: one config, src/api/plugins.yaml) — it must ship in the wheel.
 [tool.setuptools.package-data]
 "src.api" = ["*.yaml"]
 

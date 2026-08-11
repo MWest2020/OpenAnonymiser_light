@@ -1,9 +1,7 @@
-# GPU flavor: spaCy + GLiNER (transformer-NER) + regex — vereist een
-# GPU-node voor acceptabele productie-latency (zie
-# docs/architecture/flavors.md). Op CPU werkt het, maar traag genoeg
-# om in productie als geblokkeerd te worden beschouwd.
-# Multi-stage: build tools blijven in builder; runtime bevat venv +
-# baked-in HF model cache + app-code.
+# OpenAnonymiser — GLiNER-only (besluit Mark 2026-08-11). spaCy NER + GLiNER
+# (transformer-NER) + de default plugins.yaml. GPU geeft de beste productie-
+# latency; op CPU werkt het, maar traag. Multi-stage: build tools blijven in de
+# builder; runtime bevat de venv + baked-in HF model-cache + app-code.
 
 # ---------- builder ----------
 FROM python:3.12.11-bookworm AS builder
@@ -17,8 +15,8 @@ ENV HF_HOME=/opt/hf-cache
 
 COPY pyproject.toml uv.lock ./
 
-# resolve from uv.lock only, no dev dependencies, gpu-extra=on (GLiNER + torch + CUDA).
-RUN uv sync --frozen --no-dev --no-cache --extra gpu
+# resolve from uv.lock only, no dev dependencies. GLiNER (+ torch) zit in de base.
+RUN uv sync --frozen --no-dev --no-cache
 
 # Cleanup van runtime-overbodige bagage:
 #   triton           — torch.compile JIT, niet nodig voor inference (~640 MB)
@@ -31,15 +29,13 @@ RUN rm -rf .venv/lib/python3.12/site-packages/triton \
 
 # Verifieer dat het lg model bruikbaar is (uv sync installeert het via
 # pyproject.toml hard dep).
-ARG FORCE_REBUILD_MAIN="2026-05-01T00:00Z"
+ARG FORCE_REBUILD_MAIN="2026-08-11T00:00Z"
 RUN set -eux; echo "$FORCE_REBUILD_MAIN" >/dev/null; \
-    .venv/bin/python -c "import spacy, importlib.metadata as m; spacy.load('nl_core_news_lg'); print('nl_core_news_lg ready'); [print(f'  {p}: {m.version(p)}') for p in ['presidio-analyzer','presidio-anonymizer','spacy']]"
+    .venv/bin/python -c "import spacy, importlib.metadata as m; spacy.load('nl_core_news_lg'); print('nl_core_news_lg ready'); [print(f'  {p}: {m.version(p)}') for p in ['presidio-analyzer','presidio-anonymizer','spacy','gliner']]"
 
 # Pre-download GLiNER + alleen de mdeberta TOKENIZER (niet de model weights)
 # naar de HF cache. GLiNER 0.1.13 instantieert AutoTokenizer voor mdeberta-v3-base
 # bij load; zonder offline tokenizer-files crasht het onder HF_HUB_OFFLINE=1.
-# Wel uit de cache: model.safetensors / pytorch_model.bin (~1.1 GB) — die gebruikt
-# GLiNER niet, het laadt zijn eigen weights uit gliner_multi_pii-v1.
 RUN mkdir -p "$HF_HOME" && \
     .venv/bin/python -c "\
 from huggingface_hub import snapshot_download; \
@@ -68,10 +64,7 @@ ENV HF_HOME=/home/presidio/.cache/huggingface
 ENV TORCHINDUCTOR_CACHE_DIR=/tmp/torch_cache
 # Force offline mode at runtime — alle modellen zitten in de image.
 ENV HF_HUB_OFFLINE=1
-
-# Selecteer de gpu plugin-config (GLiNER + spaCy + regex).
-ENV PLUGINS_CONFIG=/app/src/api/plugins.gpu.yaml
-# spaCy lg overal — consistent met lokale dev en classic.
+# spaCy lg overal — consistent met lokale dev. (Default plugins.yaml = GLiNER-only.)
 ENV DEFAULT_SPACY_MODEL=nl_core_news_lg
 
 COPY --chown=presidio:presidio src/api ./src/api

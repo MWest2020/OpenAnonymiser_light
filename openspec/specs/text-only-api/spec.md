@@ -28,25 +28,27 @@ De API SHALL een `POST /api/v1/anonymize` endpoint bieden dat de gevonden PII ve
 - **WHEN** een client `{"text": "Jan Janssen, tel: 0612345678"}` POST naar `/api/v1/anonymize`
 - **THEN** retourneert de API `original_text`, `anonymized_text` (met `<PERSON>`- en `<PHONE_NUMBER>`-placeholders) en `entities_found`
 
-### Requirement: NLP-engine is SpaCy, zonder Transformers/torch
-De API SHALL SpaCy (`nl_core_news_lg` in dev, `nl_core_news_md` in productie) gebruiken voor NER en SHALL GEEN Transformers/torch-dependency in de base-installatie hebben.
-
-#### Scenario: SpaCy-engine beschikbaar bij startup
-- **WHEN** de API start met de default plugin-config
-- **THEN** laadt de SpaCy-engine zonder errors en logt de modelnaam
-- **AND** wordt er geen GLiNER/transformer/torch geïmporteerd
-
-### Requirement: Pattern recognizers actief
-De API SHALL de NL-specifieke pattern recognizers `PHONE_NUMBER`, `IBAN`, `BSN`, `DATE_TIME`, `EMAIL`, `ID_NO`, `DRIVERS_LICENSE` en `CASE_NO` standaard actief hebben.
-
-#### Scenario: Regex-PII wordt gedetecteerd
-- **WHEN** een client tekst met een telefoonnummer, IBAN en BSN naar `/api/v1/analyze` POST
-- **THEN** bevat het antwoord `PHONE_NUMBER`-, `IBAN`- en `BSN`-entiteiten uit de pattern recognizers
-
 ### Requirement: Stateless deployment
 De API SHALL geen persistente opslag vereisen (geen SQLite, geen file-upload, geen crypto-keys voor PDF).
 
 #### Scenario: Pod restart
 - **WHEN** een Kubernetes-pod herstart
 - **THEN** is de API direct beschikbaar zonder data-migratie of volume-mounts
+
+### Requirement: NLP-engine is spaCy + GLiNER
+
+De API SHALL spaCy (`nl_core_news_lg` in dev, `nl_core_news_md` in productie) als
+NER-engine gebruiken én GLiNER (`urchade/gliner_multi_pii-v1`, zero-shot
+transformer) als recognizer voor contextuele PII. GLiNER (en daarmee `torch`)
+SHALL een base-dependency zijn; er is één detectie-config (`plugins.yaml`), geen
+classic/gpu/contextual-flavors.
+
+#### Scenario: GLiNER-engine beschikbaar bij startup
+- **WHEN** de API start met de default plugin-config
+- **THEN** laadt de spaCy-engine én de GLiNER-recognizer zonder errors
+- **AND** logt het GLiNER-model (`urchade/gliner_multi_pii-v1`)
+
+#### Scenario: Contextuele PII wordt gedetecteerd
+- **WHEN** een client `{"text": "Jan Janssen woont in Amsterdam"}` POST naar `/api/v1/analyze`
+- **THEN** bevat het antwoord een `PERSON`- en een `LOCATION`-entiteit uit GLiNER
 

@@ -8,38 +8,25 @@ Slanke API voor detectie en anonimisering van privacygevoelige informatie (PII) 
 ## Quickstart
 
 ```bash
-uv venv && uv sync                 # base = classic-flavor (geen GLiNER)
+uv venv && uv sync                 # incl. GLiNER (+ torch)
 uv run api.py
-```
-
-GPU-flavor lokaal testen (extra deps: GLiNER, torch, CUDA):
-
-```bash
-uv sync --extra gpu
-PLUGINS_CONFIG=src/api/plugins.gpu.yaml uv run api.py
 ```
 
 Swagger UI: [http://localhost:8080/api/v1/docs](http://localhost:8080/api/v1/docs)
 
-## Flavors
+## Detectie-engine (GLiNER-only)
 
-OpenAnonymiser bouwt twee container-flavors uit deze branch — selectie via Dockerfile + `PLUGINS_CONFIG` env-var. Zie [`docs/architecture/flavors.md`](docs/architecture/flavors.md) voor de volledige uitleg.
-
-| Flavor | Engines | Use case | GPU vereist? |
-|---|---|---|---|
-| `classic` | spaCy + Dutch regex | sidecar, Nextcloud-app, on-prem appliance | nee |
-| `gpu` | spaCy + GLiNER + regex | managed SaaS met GPU-pool | ja (productie) |
-| `contextual` | gpu + verifier (BSN/ID) | managed SaaS met externe LLM/transformer | ja (productie) — niet geïmplementeerd |
+OpenAnonymiser draait **één** detectie-pad: spaCy als NER-engine + **GLiNER**
+(zero-shot transformer) voor contextuele PII, plus presidio-recognizers. Er zijn
+geen classic/gpu/contextual-flavors meer — GLiNER staat in de base-dependencies
+(trekt `torch` mee) en `plugins.yaml` is de enige config.
 
 ```bash
-# classic build (lichtgewicht, CPU)
-docker build -f Dockerfile.classic -t openanonymiser-light:dev-classic .
-
-# gpu build (~3GB image — bevat GLiNER + mdeberta)
-docker build -f Dockerfile.gpu -t openanonymiser-light:dev-gpu .
+# één image (GLiNER + spaCy + mdeberta-tokenizer gebakken, ~3GB)
+docker build -t openanonymiser-light:dev .
 ```
 
-CI bouwt beide flavors per push naar `development`/`staging`/`main` met tags `:{tier}-{flavor}`. Default-aliases: `:latest` = classic-main, `:acc` = classic-acc, `:dev` = gpu-development.
+GPU geeft de beste productie-latency; op CPU werkt het maar traag.
 
 ## Endpoints
 
