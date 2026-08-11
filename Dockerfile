@@ -48,6 +48,15 @@ RUN chown -R 1000:1000 /app /opt/hf-cache
 # ---------- runtime ----------
 FROM python:3.12.11-slim-bookworm AS runtime
 
+# OS-security-patches: het gepinde base-image loopt achter op Debian-security
+# (gnutls/krb5/gpgv/libcap2 e.d. — HIGH/CRITICAL met beschikbare fixes). Upgrade
+# de geïnstalleerde OS-packages zodat de Trivy-gate (HIGH+CRITICAL) groen is —
+# patchen, niet negeren. Als root, vóór de non-root USER.
+RUN apt-get update \
+ && apt-get -y --no-install-recommends upgrade \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/*
+
 RUN groupadd -g 1000 presidio && useradd --no-log-init -u 1000 -g presidio -m presidio
 
 WORKDIR /app
