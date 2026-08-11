@@ -21,7 +21,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: openanonymiser
-          image: docker.io/mwest2020/openanonymiser-light:latest
+          image: ghcr.io/mwest2020/openanonymiser-light:latest
           ports:
             - containerPort: 8080
               protocol: TCP
@@ -34,21 +34,29 @@ spec:
             capabilities:
               drop: [ALL]
           resources:
+            # GLiNER-only: torch + spaCy-lg + GLiNER-model ≈ 3-4 GiB resident.
             requests:
-              cpu: "200m"
-              memory: "1Gi"
+              cpu: "500m"
+              memory: "2Gi"
             limits:
-              cpu: "1000m"
-              memory: "4Gi"
+              cpu: "2000m"
+              memory: "6Gi"
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+          # Model laadt bij startup (~1-3 min op CPU) → startupProbe geeft de tijd
+          # vóór readiness/liveness streng worden.
+          startupProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 8080
+            periodSeconds: 10
+            failureThreshold: 30
           readinessProbe:
             httpGet:
               path: /api/v1/health
               port: 8080
-            initialDelaySeconds: 20
-            periodSeconds: 10
+            periodSeconds: 15
             failureThreshold: 5
           livenessProbe:
             httpGet:

@@ -16,8 +16,9 @@ on:
         default: 'staging'
 
 env:
-  REGISTRY: docker.io
-  IMAGE_NAME: mwest2020/openanonymiser-light
+  # GHCR met de ingebouwde GITHUB_TOKEN — geen Docker-Hub-secrets nodig.
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ghcr.io/mwest2020/openanonymiser-light
 
 jobs:
   test:
@@ -74,6 +75,9 @@ jobs:
     name: Build and push image
     runs-on: ubuntu-latest
     needs: test
+    permissions:
+      contents: read
+      packages: write   # push naar GHCR met GITHUB_TOKEN
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -118,12 +122,13 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to Docker Hub
+      - name: Log in to GHCR
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       # Build naar de runner (load: true), nog niet pushen — dan kan
       # Trivy de gebouwde image scannen voordat hij in de registry komt.
@@ -162,7 +167,7 @@ jobs:
       - name: Image pushed summary
         if: github.event_name != 'pull_request'
         run: |
-          echo "🚀 **Docker image pushed to Docker Hub (GLiNER-only):**" >> $GITHUB_STEP_SUMMARY
+          echo "🚀 **Docker image pushed to GHCR (GLiNER-only):**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           IFS=',' read -ra TAG_ARRAY <<< "${{ steps.meta.outputs.tags }}"
           for tag in "${TAG_ARRAY[@]}"; do

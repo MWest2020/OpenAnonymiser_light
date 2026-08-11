@@ -5,10 +5,11 @@
 # container-deploy op het cluster. Geen GPU in de homelab → CPU-inference,
 # werkt maar traag (zie repo-README / gliner-only change).
 #
-# Vereist: de image `mwest2020/openanonymiser-light:latest` in Docker Hub
-# (bouwt via .github/workflows/docker-build.yml zodra fork-Actions-runs aan
-# staan + DOCKER_USERNAME/DOCKER_PASSWORD secrets gezet zijn). Het GLiNER-model
-# is in de image gebakken (HF_HUB_OFFLINE=1) — geen runtime-download.
+# Vereist: de image `ghcr.io/mwest2020/openanonymiser-light:latest` in GHCR
+# (bouwt via .github/workflows/docker-build.yml met de ingebouwde GITHUB_TOKEN —
+# geen secret nodig; trigger met `gh workflow run docker-build.yml -f ref=main`).
+# Het GLiNER-model is in de image gebakken (HF_HUB_OFFLINE=1) — geen runtime-download.
+# Is het GHCR-package private, dan heeft de namespace een image-pull-secret nodig.
 #
 # Toepassen (vanaf een host met kubectl op het homelab-cluster):
 #   kubectl apply -f deploy/homelab-deployment.yaml
@@ -33,7 +34,7 @@ spec:
     spec:
       containers:
         - name: api
-          image: mwest2020/openanonymiser-light:latest
+          image: ghcr.io/mwest2020/openanonymiser-light:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
