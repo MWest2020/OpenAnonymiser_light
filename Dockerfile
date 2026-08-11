@@ -22,8 +22,14 @@ RUN uv sync --frozen --no-dev --no-cache
 #   triton           — torch.compile JIT, niet nodig voor inference (~640 MB)
 #   tests/           — getest in CI, niet in image
 #   __pycache__      — py3.12 bouwt deze runtime opnieuw
+#   wheel / jaraco.* — build-tools; niet op het runtime-pad (Trivy-METADATA-CVE's)
 RUN rm -rf .venv/lib/python3.12/site-packages/triton \
-           .venv/lib/python3.12/site-packages/triton-*.dist-info && \
+           .venv/lib/python3.12/site-packages/triton-*.dist-info \
+           .venv/lib/python3.12/site-packages/wheel \
+           .venv/lib/python3.12/site-packages/wheel-*.dist-info \
+           .venv/lib/python3.12/site-packages/jaraco \
+           .venv/lib/python3.12/site-packages/jaraco.*.dist-info \
+           .venv/lib/python3.12/site-packages/jaraco_* && \
     find .venv -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true && \
     find .venv -type d -name tests -path "*/site-packages/*" -exec rm -rf {} + 2>/dev/null || true
 
