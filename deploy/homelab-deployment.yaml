@@ -1,0 +1,78 @@
+# OpenAnonymiser (GLiNER-only) — homelab K8s deployment.
+#
+# Draait op een homelab worker-node (node-01..03: 16 GiB RAM). NIET op de
+# agent-host (4 GiB → OOM-freeze) en niet als losse process: dit is een
+# container-deploy op het cluster. Geen GPU in de homelab → CPU-inference,
+# werkt maar traag (zie repo-README / gliner-only change).
+#
+# Vereist: de image `mwest2020/openanonymiser-light:latest` in Docker Hub
+# (bouwt via .github/workflows/docker-build.yml zodra fork-Actions-runs aan
+# staan + DOCKER_USERNAME/DOCKER_PASSWORD secrets gezet zijn). Het GLiNER-model
+# is in de image gebakken (HF_HUB_OFFLINE=1) — geen runtime-download.
+#
+# Toepassen (vanaf een host met kubectl op het homelab-cluster):
+#   kubectl apply -f deploy/homelab-deployment.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: openanonymiser
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openanonymiser
+  namespace: openanonymiser
+  labels: { app: openanonymiser }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: openanonymiser }
+  template:
+    metadata:
+      labels: { app: openanonymiser }
+    spec:
+      containers:
+        - name: api
+          image: mwest2020/openanonymiser-light:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: UVICORN_SERVER_MODE
+              value: production
+            - name: DEFAULT_SPACY_MODEL
+              value: nl_core_news_lg
+          resources:
+            requests:
+              # torch + spaCy-lg + GLiNER-model ≈ 3-4 GiB resident.
+              memory: "3Gi"
+              cpu: "500m"
+            limits:
+              # ruim onder de 16 GiB van een worker; voorkomt OOM van de node.
+              memory: "6Gi"
+              cpu: "2"
+          # Model laadt bij startup (~1-3 min op CPU) → startupProbe geeft de
+          # tijd; readiness/liveness pas daarna streng.
+          startupProbe:
+            httpGet: { path: /api/v1/health, port: 8080 }
+            periodSeconds: 10
+            failureThreshold: 30   # tot ~300s warm-up
+          readinessProbe:
+            httpGet: { path: /api/v1/health, port: 8080 }
+            periodSeconds: 15
+          livenessProbe:
+            httpGet: { path: /api/v1/health, port: 8080 }
+            periodSeconds: 30
+            failureThreshold: 4
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openanonymiser
+  namespace: openanonymiser
+spec:
+  selector: { app: openanonymiser }
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: ClusterIP
